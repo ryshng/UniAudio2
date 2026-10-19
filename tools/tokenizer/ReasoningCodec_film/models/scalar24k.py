@@ -11,7 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm, remove_weight_norm
 import pytorch_lightning as pl
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, ListConfig
+from omegaconf.base import ContainerMetadata
 from collections import OrderedDict
 
 def get_padding(kernel_size, dilation=1):
@@ -432,9 +433,15 @@ class ScalarAE(pl.LightningModule):
             self.resume_model()
 
     def resume_model(self):
-        parameter_dict = torch.load(self.resume_path)
+        with torch.serialization.safe_globals([ListConfig, ContainerMetadata]):
+            parameter_dict = torch.load(
+                self.resume_path,
+                map_location='cpu',
+                weights_only=False,
+            )
         new_state_dict = OrderedDict()
         self.model.load_state_dict(parameter_dict['codec_model']) # load model
+        print("Model device:", next(self.model.parameters()).device)
     
     def forward(self, x):
         codes = self.encode(x)

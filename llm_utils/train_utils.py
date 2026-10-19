@@ -1,20 +1,13 @@
-import importlib
 import random
 import numpy as np
 import torch
 import warnings
 import os
 import time
-import sys
 import yaml
-import json
 import dataclasses
 import logging
-import torchaudio
-import functools
-
-import torch.utils.tensorboard as tensorboard
-import typing as tp
+from datetime import timedelta
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -169,7 +162,17 @@ def resume_for_inference(resume, exp_dir, model, device='cpu'):
             checkpoint = str(ckpts[-1])
             logging.info(f"Automatically resume from the latest checkpoint {checkpoint}")
 
-    state_dict = torch.load(checkpoint, map_location='cpu')['model']
+    # Released checkpoints include NumPy scalars and elapsed-time metadata.
+    # Allow these types only during this load, retaining weights-only unpickling.
+    with torch.serialization.safe_globals([
+        (np._core.multiarray.scalar, "numpy.core.multiarray.scalar"),
+        np.dtype,
+        np.dtypes.Float64DType,
+        timedelta,
+    ]):
+        state_dict = torch.load(
+            checkpoint, map_location='cpu', weights_only=True
+        )['model']
     state_dict = { k.split("module.")[-1] if k.startswith("module.") else k: v
                    for k, v in state_dict.items()
                  }

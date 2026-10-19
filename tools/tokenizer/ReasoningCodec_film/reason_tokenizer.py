@@ -1,22 +1,25 @@
 import os
 import sys
-from omegaconf import OmegaConf
+import math
+import numpy as np
+import yaml
+import argparse
+from datetime import timedelta
+
 import torch
+import torchaudio
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_model
+from omegaconf import OmegaConf
+
 from tools.tokenizer.abs_tokenizer import AbsTokenizer
-import torchaudio
 from tools.tokenizer.ReasoningCodec_film.models.AudioDiffusion1D import AudioDiffusion1D, AudioThinking
 from tools.tokenizer.ReasoningCodec_film.models.model_utils import load_state
 from tools.tokenizer.common import VolumeNorm
 from tools.tokenizer.ReasoningCodec_film.models.scalar24k import ScalarAE
 from transformers import WhisperFeatureExtractor
-import yaml
-import argparse
-import os 
-import glob
-import math
-import numpy as np 
+
+
 
 class ReasoningTokenizer(AbsTokenizer):
     def __init__(self, train_config, model_path, music_ssl_folder, device=torch.device('cpu')):
@@ -33,6 +36,7 @@ class ReasoningTokenizer(AbsTokenizer):
         self.reason_frame_rate = 5 
         self.SQCodec = ScalarAE(scalar_config=train_args.sq_config, resume_path=train_args.sq_resume)
         self.SQCodec = self.SQCodec.eval().to(device)
+        print("SQCodec device:", next(self.SQCodec.parameters()).device)
         self.wav_processor = WhisperFeatureExtractor.from_pretrained(train_args.whisper_path)
         self.transfer16k = torchaudio.transforms.Resample(24000, 16000).to(device)
         self.model = AudioDiffusion1D(
@@ -54,7 +58,13 @@ class ReasoningTokenizer(AbsTokenizer):
             device = self.device
         )
         if model_path is not None:
-            state_dict = torch.load(model_path, map_location='cpu')['model']
+            with torch.serialization.safe_globals([
+                (np._core.multiarray.scalar, "numpy.core.multiarray.scalar"),
+                np.dtype,
+                np.dtypes.Float64DType,
+                timedelta,
+            ]):
+                state_dict = torch.load(model_path, map_location='cpu', weights_only=True)['model']
             state_dict = { k.split("module.")[-1] if k.startswith("module.") else k: v
                         for k, v in state_dict.items() }
             self.model.load_state_dict(state_dict, strict=False)

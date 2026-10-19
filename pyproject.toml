@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools==69.5.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,13 +10,13 @@ readme = "readme.md"
 requires-python = ">=3.9"
 license = { text = "To be specified" }
 authors = [
-    { name = "UniAudio 2.0 Team", email = "" }
+    { name = "UniAudio 2.0 Team" }
 ]
 dependencies = [
     "numpy==2.0.2",
-    "torch==2.4.1",
-    "torchaudio==2.4.1",
-    "torchvision==0.19.1",
+    "torch==2.6.0",
+    "torchaudio==2.6.0",
+    "torchvision==0.21.0",
     "torchtune==0.4.0",
     "torchao==0.9.0",
     "tqdm==4.67.1",
@@ -30,30 +30,41 @@ dependencies = [
     "bitsandbytes==0.49.0",
     "vector-quantize-pytorch==1.27.15",
     "modelscope==1.33.0",
-    "soundfile",
-    "omegaconf>=2.0",
-    "typing_extensions>=4.0",
-    "PyYAML",
-    "litgpt",
-    "diffusers>=0.25.0",
-    "safetensors>=0.4.0",
-    "huggingface_hub",
-    "nnAudio",
-    "pytorch_lightning>=2.0.0",
-    "scipy",
-    "datasets",
-    "jiwer",
-    "zhconv",
-    "zhon",
-    "editdistance",
-    "regex",
-    "more-itertools",
-    "absl-py",
-    "langdetect",
-    "immutabledict",
-    "nltk",
-    "librosa",
-    "laion_clap",
+    "soundfile==0.14.0",
+    "omegaconf==2.0.6",
+    "typing_extensions==4.16.0",
+    "PyYAML==6.0.3",
+    "litgpt==0.4.11",
+    "diffusers==0.39.0",
+    "safetensors==0.8.0",
+    "huggingface_hub==0.36.2",
+    "nnAudio==0.3.4",
+    "pytorch_lightning==2.6.6",
+    "scipy==1.15.3",
+    "datasets==2.21.0",
+    "jiwer==4.0.0",
+    "zhconv==1.4.3",
+    "zhon==2.1.1",
+    "editdistance==0.8.1",
+    "regex==2026.9.29",
+    "more-itertools==11.1.0",
+    "absl-py==2.5.1",
+    "langdetect==1.0.9",
+    "immutabledict==4.3.1",
+    "nltk==3.10.3",
+    "librosa==0.11.0",
+    "laion_clap==1.1.5",
+    "openai-whisper==20250625",
+    "peft==0.21.2",
+    "soft-moe-pytorch==0.1.9",
+    "encodec==0.1.1"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
 ]
 # Optional: fairseq often needs install from source for compatibility
 # Run after: pip install git+https://github.com/facebookresearch/fairseq.git
@@ -67,11 +78,3 @@ kaldi = ["kaldiio"]
 where = ["."]
 include = ["evaluation", "llm_models", "llm_modules", "llm_utils", "metrics", "tools", "prompts"]
 # exclude = ["tools.kaldi"]  # uncomment to omit Kaldi utils from installed package
-
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
-]

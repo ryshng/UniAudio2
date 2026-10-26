@@ -45,6 +45,25 @@ conda activate uniaudio2
 pip install -e .
 
 ```
+## Local Windows
+
+```bash
+python -m pip install "pip==24.0"
+python -m pip install "setuptools==69.5.1" wheel cython ninja
+python -m pip install -r requirements.txt
+python -m pip install -e .
+python -m pip install --no-build-isolation "fairseq==0.12.2"
+
+& "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+
+conda activate uniaudio2-v2
+
+$env:CL = "/std:c++17"
+$env:DISTUTILS_USE_SDK = "1"
+$env:MAX_JOBS = "2"
+
+python -m pip install --no-cache-dir --no-build-isolation git+https://github.com/facebookresearch/fairseq.git
+```
 
 ## Quick Start
 

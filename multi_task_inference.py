@@ -49,7 +49,7 @@ from llm_utils.arguments import str2bool
 
 # --------------- Supported tasks ---------------
 UNDERSTANDING_TASKS = ["ASR", "Yue_ASR", "lyric_recognition", "audio_caption", "music_caption", "audio_understanding", "speech_s2t"]
-GENERATION_TASKS = ["TTS", "Yue_TTS", "TTA", "TTM", "LTS", "InstructTTS", "speech_s2s"]
+GENERATION_TASKS = ["TTS", "Yue_TTS", "TTA", "TTM", "LTS", "InstructTTS", "speech_s2s", "speech_edit"]
 UNDERSTANDING_TASKS_LOWER = [t.lower() for t in UNDERSTANDING_TASKS]
 GENERATION_TASKS_LOWER = [t.lower() for t in GENERATION_TASKS]
 TASK_PROMPT_SUFFIX = "\n\n"  # match tokenize_tasks: tokenize(p_norm+'\n\n')
@@ -69,6 +69,8 @@ def _prompt_key_from_task(task):
         return "speech_s2s"
     if t == "speech_s2t":
         return "speech_s2t"
+    if t == "speech_edit":
+        return "speech_edit"
     return t
 
 
@@ -187,70 +189,40 @@ def _load_config_and_llm(args):
 def _get_generator_class(task):
     task = task.strip().lower()
     if task in ("asr", "yue_asr"):
-        try:
-            from evaluation.asr_task import Generator
-        except ImportError:
-            from asr_task import Generator
+        from evaluation.asr_task import Generator
         return Generator
     if task == "lyric_recognition":
-        try:
-            from evaluation.lyric_asr_task import Generator
-        except ImportError:
-            from lyric_asr_task import Generator
+        from evaluation.lyric_asr_task import Generator
         return Generator
     if task in ("audio_caption", "music_caption"):
-        try:
-            from evaluation.audio_music_caption_task import Generator
-        except ImportError:
-            from audio_music_caption_task import Generator
+        from evaluation.audio_music_caption_task import Generator
         return Generator
     if task == "audio_understanding":
-        try:
-            from evaluation.audio_understanding import Generator
-        except ImportError:
-            from audio_understanding import Generator
+        from evaluation.audio_understanding import Generator
         return Generator
     if task == "speech_s2t":
-        try:
-            from evaluation.speech_s2t import Generator
-        except ImportError:
-            from speech_s2t import Generator
+        from evaluation.speech_s2t import Generator
         return Generator
     if task in ("tts", "yue_tts"):
-        try:
-            from evaluation.tts_task import Generator
-        except ImportError:
-            from tts_task import Generator
+        from evaluation.tts_task import Generator
         return Generator
     if task == "tta":
-        try:
-            from evaluation.audiogen_task import Generator
-        except ImportError:
-            from audiogen_task import Generator
+        from evaluation.audiogen_task import Generator
         return Generator
     if task == "ttm":
-        try:
-            from evaluation.musicgen_task import Generator
-        except ImportError:
-            from musicgen_task import Generator
+        from evaluation.musicgen_task import Generator
         return Generator
     if task == "lts":
-        try:
-            from evaluation.songen_task import Generator
-        except ImportError:
-            from songen_task import Generator
+        from evaluation.songen_task import Generator
         return Generator
     if task == "instruct_tts":
-        try:
-            from evaluation.insturct_tts_task import Generator
-        except ImportError:
-            from insturct_tts_task import Generator
+        from evaluation.insturct_tts_task import Generator
         return Generator
     if task == "speech_s2s":
-        try:
-            from evaluation.speech_s2s import Generator
-        except ImportError:
-            from speech_s2s import Generator
+        from evaluation.speech_s2s import Generator
+        return Generator
+    if task == "speech_edit":
+        from evaluation.speech_edit_ss import Generator
         return Generator
     raise ValueError(f"Unknown task: {task}. Understanding: {UNDERSTANDING_TASKS}. Generation: {GENERATION_TASKS}.")
 
@@ -402,6 +374,8 @@ def _generation_method_name(task):
         return "generate_instruct_tts"
     if t == "speech_s2s":
         return "generate_audio"
+    if t == "speech_edit":
+        return "generate_audio"
     raise ValueError(f"Unknown generation task: {task}")
 
 
@@ -411,12 +385,12 @@ def run_generation_stage1(args):
     out_dir = args.output_dir
     os.makedirs(out_dir, exist_ok=True)
 
-    if task == "speech_s2s":
+    if task in ("speech_s2s", "speech_edit"):
         # speech_s2s: input = source audio (or token_dir with source .pt); output = generated .pt
         from llm_utils.task_definition import task_formats
-        cond_format = task_formats.get("speech_s2s")
+        cond_format = task_formats.get(task)
         if cond_format is None:
-            raise ValueError("task_formats has speech_s2s; cannot run speech_s2s.")
+            raise ValueError(f"No task format defined for {task}. Not speech_s2s nor speech_edit")
         cond_keys = cond_format["keys"][:-2]
         cond_types = cond_format["type"][:-2]
 
@@ -450,6 +424,14 @@ def run_generation_stage1(args):
         )
         text_tokenizer = generator._text_tokenizer
         task_prompt = _get_prompt_tensor(args, text_tokenizer, args.task)
+        
+        instruction_tokens = None
+        if task == "speech_edit":
+            instruction_tokens = torch.tensor(
+                text_tokenizer.tokenize(args.text.strip()),
+                dtype=torch.long,
+            )
+        
         gen_fn = getattr(generator, "generate_audio")
 
         for name in names:
@@ -466,9 +448,12 @@ def run_generation_stage1(args):
                 "reason_seq_2": reason,
                 "semantic_seq_2": semantic,
             }
+            if task == "speech_edit":
+                d["text_seq"] = instruction_tokens
+
             reason_tokens, semantic_tokens = gen_fn(
                 task_prompt=task_prompt,
-                task_name="speech_s2s",
+                task_name=task, # speech s2s or speech edit
                 d=d,
                 keys=cond_keys,
                 types=cond_types,
@@ -621,13 +606,38 @@ def main():
         return
 
     if task in GENERATION_TASKS_LOWER:
-        has_text = (args.text and args.text.strip()) or (args.text_file and os.path.isfile(args.text_file))
-        if not has_text:
-            raise ValueError("For generation task provide --text or --text_file.")
+        if task in ("speech_s2s", "speech_edit"):
+            has_src_audio = (
+                args.audio and os.path.isfile(args.audio)
+                or (args.audio_dir and os.path.isdir(args.audio_dir))
+                or (args.token_dir and os.path.isdir(args.token_dir))
+            )
+
+            if not has_src_audio:
+                raise ValueError(
+                    f"{task} requires --audio, --audio_dir, or --token_dir."
+                )
+
+            if task == "speech_edit":
+                if args.text_file:
+                    raise ValueError("speech_edit uses --text, not --text_file.")
+                if not args.text or not args.text.strip():
+                    raise ValueError("speech_edit requires an instruction in --text.")
+        else:
+            has_text = (args.text and args.text.strip()) or (args.text_file and os.path.isfile(args.text_file))
+            if not has_text:
+                raise ValueError("For generation task provide --text or --text_file.")
+        
         if not args.llm_train_config or not args.text_tokenizer_path:
             raise ValueError("Set --llm_train_config and --text_tokenizer_path.")
         if not (args.prompt_text or (args.prompt_json and os.path.isfile(args.prompt_json))):
             raise ValueError("Set --prompt_text or --prompt_json.")
+        if ((args.audio or args.audio_dir)
+            and task in ("speech_s2s", "speech_edit")
+            and (not args.codec_config or not args.codec_ckpt)
+        ):
+            raise ValueError("For raw audio, set --codec_config and --codec_ckpt.")
+        
         args.tts_task_name = _prompt_key_from_task(args.task)
         if args.stage in ("1", "all"):
             run_generation_stage1(args)

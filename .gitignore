@@ -1,0 +1,16 @@
+# vscode
+.vscode
+
+# python
+__pycache__/
+*.py[cod]
+
+# outputs
+output/
+
+# info
+uniaudio2.egg-info
+
+# powershell scripts
+*.ps1
+!test_speech_edit.ps1

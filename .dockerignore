@@ -19,7 +19,8 @@
 !prompts/**
 !tools/
 !tools/**
-!emomatch_infer.py
+!infer_ravdess.py
+!infer_emomatch.py
 
 **/__pycache__
 **/*.py[cod]

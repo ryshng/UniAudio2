@@ -19,6 +19,7 @@
 !prompts/**
 !tools/
 !tools/**
+!emomatch_infer.py
 
 **/__pycache__
 **/*.py[cod]
